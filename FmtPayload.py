@@ -37,7 +37,7 @@ def fmt_payload(offset,address,value,n=0,written=0,arch='amd64',typex='byte'):
         saddress = address+i*config[arch][typex][1]
         dicts.append({'address':saddress,'byte':sbyte})
     dicts = sorted(dicts,key=lambda i:i['byte'])
-    now = 0
+    now = written
     for i in dicts:
         if i['byte'] == now:
             spayload = "%{soffset}$"+config[arch][typex][3]+"n"
